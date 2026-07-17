@@ -104,7 +104,7 @@ func prepareReview(pr *PRData, configPath string) (*reviewContext, error) {
 		return nil, err
 	}
 
-	projectDocs := ReadProjectDocs()
+	projectDocs := ReadProjectDocs(pr.Files)
 	for k, v := range ReadClaudeRules(pr.Files) {
 		projectDocs[k] = v
 	}

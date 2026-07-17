@@ -189,7 +189,7 @@ rules:
 
 ## Project docs auto-discovery
 
-CodeCanary automatically reads `CLAUDE.md` files from your repo root, `.claude/` directory, and top-level subdirectories. These are injected into the review prompt as additional context. Per-file cap is 4KB, total cap is 12KB.
+CodeCanary automatically reads `CLAUDE.md` files as additional review context. The root `CLAUDE.md` and `.claude/CLAUDE.md` are always included. Nested `<dir>/CLAUDE.md` files at any depth (e.g. `apps/web/CLAUDE.md`, `engines/billing/CLAUDE.md`) are included only when a changed file lives under that directory, so monorepo reviews load just the relevant package docs. Per-file cap is 64KB, total cap is 128KB, across up to 20 files.
 
 ## Path-scoped rules (`.claude/rules/*.md`)
 
