@@ -72,7 +72,7 @@ Calls `BuildPrompt()` to assemble the full review prompt. The prompt includes (i
 2. PR metadata (number, title, author, description)
 3. Additional context from config
 4. Project documentation (CLAUDE.md files in `<project-doc>` tags)
-5. Review rules (from config) or general review instruction
+5. Review rules (from config) or general review instruction — path-scoped rules are filtered to those whose `paths`/`exclude_paths` globs match a changed file
 6. Ignore patterns
 7. Explicit file allowlist (anti-hallucination)
 8. Full contents of changed files with line numbers

@@ -174,6 +174,19 @@ ignore:
   - "*.lock"
 ```
 
+### Per-rule path scoping
+
+A rule's optional `paths` and `exclude_paths` globs scope it to specific files. A rule is injected into the review prompt only when at least one changed file matches `paths` (and is not matched by `exclude_paths`). A rule with no `paths`/`exclude_paths` applies to every review. This keeps the prompt focused — a Go-only rule won't be sent when a PR only touches TypeScript — and uses the same `**` glob syntax as `ignore`.
+
+```yaml
+rules:
+  - id: go-error-handling
+    description: "Errors must be wrapped with context using fmt.Errorf"
+    severity: warning
+    paths: ["**/*.go"]
+    exclude_paths: ["**/*_test.go"]
+```
+
 ## Project docs auto-discovery
 
 CodeCanary automatically reads `CLAUDE.md` files from your repo root, `.claude/` directory, and top-level subdirectories. These are injected into the review prompt as additional context. Per-file cap is 4KB, total cap is 12KB.

@@ -43,6 +43,59 @@ func writeFencedBlock(b *strings.Builder, lang, content string) {
 	fmt.Fprintf(b, "%s\n", fence)
 }
 
+// writeReviewRules renders the "Review Rules" prompt section, injecting only
+// the rules that apply to the changed files. Path-scoped rules whose globs
+// don't match any changed file are omitted to save prompt tokens.
+func writeReviewRules(b *strings.Builder, cfg *ReviewConfig, files []string) {
+	var rules []Rule
+	if cfg != nil {
+		rules = relevantRules(cfg.Rules, files)
+	}
+	if len(rules) == 0 {
+		b.WriteString("## Review Rules\nNo specific rules are defined. Perform a general code review covering correctness, security, performance, and maintainability.\n\n")
+		return
+	}
+	b.WriteString("## Review Rules\n")
+	b.WriteString("Apply the following rules when reviewing:\n\n")
+	for _, rule := range rules {
+		fmt.Fprintf(b, "- **%s** (severity: %s): %s\n", rule.ID, rule.Severity, rule.Description)
+	}
+	b.WriteString("\n")
+}
+
+// relevantRules returns the subset of rules that apply to at least one changed
+// file, preserving order. A rule with no Paths/ExcludePaths applies to every
+// file; otherwise a file is in scope when it matches Paths (or Paths is empty)
+// and does not match ExcludePaths.
+func relevantRules(rules []Rule, files []string) []Rule {
+	if len(rules) == 0 {
+		return nil
+	}
+	out := make([]Rule, 0, len(rules))
+	for _, r := range rules {
+		if ruleApplies(r, files) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// ruleApplies reports whether rule r is in scope for any of the changed files.
+func ruleApplies(r Rule, files []string) bool {
+	if len(r.Paths) == 0 && len(r.ExcludePaths) == 0 {
+		return true
+	}
+	for _, f := range files {
+		if len(r.ExcludePaths) > 0 && matchesAnyGlob(f, r.ExcludePaths) {
+			continue
+		}
+		if len(r.Paths) == 0 || matchesAnyGlob(f, r.Paths) {
+			return true
+		}
+	}
+	return false
+}
+
 // BuildPrompt constructs the review prompt from PR data and review config.
 // startIndex is the number of existing findings across prior reviews so that
 // fix_ref numbering continues from where the last review left off.
@@ -74,17 +127,8 @@ func BuildPrompt(pr *PRData, cfg *ReviewConfig, startIndex int, projectDocs map[
 	// Project documentation (CLAUDE.md files).
 	writeProjectDocs(&b, projectDocs)
 
-	// Review rules.
-	if cfg != nil && len(cfg.Rules) > 0 {
-		b.WriteString("## Review Rules\n")
-		b.WriteString("Apply the following rules when reviewing:\n\n")
-		for _, rule := range cfg.Rules {
-			fmt.Fprintf(&b, "- **%s** (severity: %s): %s\n", rule.ID, rule.Severity, rule.Description)
-		}
-		b.WriteString("\n")
-	} else {
-		b.WriteString("## Review Rules\nNo specific rules are defined. Perform a general code review covering correctness, security, performance, and maintainability.\n\n")
-	}
+	// Review rules — scoped to the files actually changed in this PR.
+	writeReviewRules(&b, cfg, pr.Files)
 
 	// Ignore patterns.
 	if cfg != nil && len(cfg.Ignore) > 0 {
@@ -225,17 +269,8 @@ func BuildIncrementalPrompt(diff string, cfg *ReviewConfig, knownIssues []Review
 	// Project documentation (CLAUDE.md files).
 	writeProjectDocs(&b, projectDocs)
 
-	// Review rules.
-	if cfg != nil && len(cfg.Rules) > 0 {
-		b.WriteString("## Review Rules\n")
-		b.WriteString("Apply the following rules when reviewing:\n\n")
-		for _, rule := range cfg.Rules {
-			fmt.Fprintf(&b, "- **%s** (severity: %s): %s\n", rule.ID, rule.Severity, rule.Description)
-		}
-		b.WriteString("\n")
-	} else {
-		b.WriteString("## Review Rules\nNo specific rules are defined. Perform a general code review covering correctness, security, performance, and maintainability.\n\n")
-	}
+	// Review rules — scoped to the files actually changed in this diff.
+	writeReviewRules(&b, cfg, files)
 
 	// Ignore patterns.
 	if cfg != nil && len(cfg.Ignore) > 0 {
